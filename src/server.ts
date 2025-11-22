@@ -1,8 +1,12 @@
 import  express  from "express";
 import  * as dotenv from "dotenv";
 import { registerUser, loginUser } from "./controllers/userControllers"
+import connectDB from "./config/DB";
 dotenv.config()
-const PORT = process.env.PORT
+
+connectDB();
+
+const PORT = process.env.PORT || 5000
 
 const app = express()
 const router = express.Router();
