@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import User from "../models/User"; 
+import { AuthRequest } from "../middleware/authMiddleware";
 
 /**
  * @desc    Register a new user
@@ -89,4 +90,16 @@ export const loginUser = async (req: Request, res: Response) => {
   } catch (error: any) {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
+};
+/**
+ * @desc    Get user profile (Test Token)
+ * @route   GET /api/auth/profile
+ * @access  Private (Requires Token)
+ */
+export const getUserProfile = async (req: AuthRequest, res: Response) => {
+  // إذا وصلنا هنا، يعني أن التوكن سليم والـ Middleware مرر الطلب
+  res.status(200).json({
+    message: "Success! Token is valid.",
+    user: req.user, // بيانات المستخدم التي استخرجناها من التوكن
+  });
 };
