@@ -88,9 +88,9 @@ export const getMyActiveRide = async (req: AuthRequest, res: Response) => {
   try {
     // نبحث عن رحلة لهذا السائق حالتها ليست مكتملة أو ملغية
     const ride = await Ride.findOne({
-      driver: req.user._id,
-      status: { $in: ["open", "booked", "ongoing"] },
-    }).populate("passenger", "name email"); // نجيب بيانات الراكب عشان السائق يشوف مين حجز
+  $or: [{ driver: req.user._id }, { passenger: req.user._id }], // Check both
+  status: { $in: ["open", "booked", "ongoing"] },
+}).populate("driver", "name email rating").populate("passenger", "name email"); 
 
     if (!ride) {
       return res.status(200).json(null); // لا توجد رحلة نشطة
