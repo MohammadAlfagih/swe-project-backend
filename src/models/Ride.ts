@@ -5,7 +5,7 @@ export interface IRide extends Document {
   passenger?: Types.ObjectId; // Optional initially
   from: string;
   to: string;
-  status: "open" | "booked" | "completed" | "cancelled";
+  status: "open" | "booked"| "ongoing" | "completed" | "cancelled";
   startTime: Date; // Added this so users know WHEN the ride is
   createdAt: Date;
 }
@@ -26,7 +26,7 @@ const RideSchema = new Schema<IRide>(
     to: { type: String, required: true },
     status: {
       type: String,
-      enum: ["open", "booked", "completed", "cancelled"],
+      enum: ["open", "booked","ongoing", "completed", "cancelled"],
       default: "open",
     },
     startTime: { type: Date, required: true },
