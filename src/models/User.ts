@@ -10,6 +10,8 @@ interface IUser extends Document {
   email: string;
   password: string;
   isDriver: boolean;
+  rating: number;
+  numReviews: number; 
   generateJWT(): Promise<string>;
   comparePassword(enteredpassword: string): Promise<boolean>;
 }
@@ -18,7 +20,9 @@ const UserSchema = new Schema ({
   name : {type : String, required:true},
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  isDriver :{type: Boolean, default:false}
+  isDriver :{type: Boolean, default:true},
+  rating: { type: Number, default: 0 },
+  numReviews: { type: Number, default: 0 },
 })
 
 UserSchema.pre("save", async function (this: IUser) {

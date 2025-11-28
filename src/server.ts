@@ -1,8 +1,9 @@
 import  express  from "express";
 import  * as dotenv from "dotenv";
 import cors from "cors"
-import { registerUser, loginUser,getUserProfile } from "./controllers/userControllers"
-import { protect } from "./middleware/authMiddleware"; 
+import authRoutes from "./routes/authRoutes";
+import rideRoutes from "./routes/rideRoutes";
+import userRoutes from "./routes/userRoutes";
 import connectDB from "./config/DB";
 dotenv.config()
 
@@ -15,15 +16,12 @@ const app = express()
 
 app.use(cors())
 app.use(express.json());
-const router = express.Router();
 
+app.use('/api/auth', authRoutes);
 
-router.post('/register', registerUser);
-router.post('/login', loginUser);
+app.use('/api/rides', rideRoutes);
+app.use('/api/users', userRoutes);
 
-app.use('/api/auth', router);
-
-router.get('/profile', protect, getUserProfile);
 app.listen(PORT, () => {
   console.log(`server is running on ${PORT}`)
 })

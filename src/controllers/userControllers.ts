@@ -103,3 +103,28 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
     user: req.user, // بيانات المستخدم التي استخرجناها من التوكن
   });
 };
+export const rateUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId, rating } = req.body; // userId هو معرف السائق
+
+    const userToRate = await User.findById(userId);
+
+    if (!userToRate) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // معادلة حساب المتوسط التراكمي
+    // (التقييم القديم * عدد المقيمين + التقييم الجديد) / (عدد المقيمين + 1)
+    const currentTotal = userToRate.rating * userToRate.numReviews;
+    const newTotalRating = ((currentTotal + Number(rating)) / (userToRate.numReviews + 1));
+
+    userToRate.rating = parseFloat(newTotalRating.toFixed(1)); // تقريب لرقم عشري واحد
+    userToRate.numReviews += 1;
+
+    await userToRate.save();
+
+    res.status(200).json({ success: true, message: "Rating submitted" });
+  } catch (error: any) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
