@@ -4,7 +4,6 @@ import { protect } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
-// تعريف المسارات
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.get('/profile', protect, getUserProfile);

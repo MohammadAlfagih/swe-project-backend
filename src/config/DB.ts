@@ -1,14 +1,22 @@
-import mongoose from 'mongoose';
+import Datastore from "nedb-promises";
+import path from "path";
+import os from "os";
+
+// This creates a persistent path in the user's home directory
+const dbDir = path.join(os.homedir(), "RideShareData");
+
+export const userDB = Datastore.create({
+  filename: path.join(dbDir, "users.db"),
+  autoload: true
+});
+
+export const rideDB = Datastore.create({
+  filename: path.join(dbDir, "rides.db"),
+  autoload: true
+});
 
 const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.DB_URI || 'mongodb://127.0.0.1:27017/uber_clone_db');
-
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-  } catch (error: any) {
-    console.error(`❌ Error: ${error.message}`);
-    process.exit(1);
-  }
+  console.log(`✅ Local NeDB initialized at: ${dbDir}`);
 };
 
 export default connectDB;

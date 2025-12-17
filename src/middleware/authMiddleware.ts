@@ -1,10 +1,25 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import User from "../models/User";
+// import User from "../models/User";
+import { userDB } from "../config/DB";
+
+
+interface UserDoc {
+  _id: string;
+  name: string;
+  email: string;
+  password?: string;
+  isDriver: boolean;
+  rating: number;
+  numReviews: number;
+}
 
 // واجهة مخصصة عشان نقدر نضيف بيانات المستخدم للـ Request
+// export interface AuthRequest extends Request {
+//   user?: any;
+// }
 export interface AuthRequest extends Request {
-  user?: any;
+  user?: Omit<UserDoc, 'password'>;
 }
 
 export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -23,7 +38,11 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string);
 
       // 3. جلب بيانات المستخدم وإضافتها للطلب (بدون الباسورد)
-      req.user = await User.findById(decoded.id).select("-password");
+      // req.user = await User.findById(decoded.id).select("-password");
+      const user = await userDB.findOne({_id: decoded.id}) as UserDoc | null
+      if(!user) return res.status(401).json({message:"user not found"});
+      const {password, ...userWithoutPassword} = user;
+      req.user = userWithoutPassword;
 
       next(); // التوكن سليم، انتقل للفنكشن التالية
     } catch (error) {

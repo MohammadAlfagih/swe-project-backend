@@ -1,23 +1,29 @@
 import { Request, Response } from "express";
-import Ride from "../models/Ride";
+import { rideDB, userDB } from "../config/DB";
 import { AuthRequest } from "../middleware/authMiddleware";
 
-/**
- * @desc    Driver offers a ride
- * @route   POST /api/rides/offer
- * @access  Private (Driver only)
- */
+// Interface to help with manual population
+interface RideDoc {
+  _id: string;
+  driver: string;
+  passenger?: string;
+  from: string;
+  to: string;
+  status: string;
+  startTime: Date;
+}
+
 export const createRide = async (req: AuthRequest, res: Response) => {
   try {
     const { from, to, startTime } = req.body;
 
+    // Fix the "possibly undefined" error by checking req.user first
+    if (!req.user) return res.status(401).json({ message: "Not authorized" });
     if (!from || !to || !startTime) {
-      return res.status(400).json({ message: "Please provide from, to, and startTime" });
+      return res.status(400).json({ message: "Please provide all fields" });
     }
 
-    // Since default isDriver is true, everyone can create a ride.
-    // We get the user ID from the token (middleware)
-    const ride = await Ride.create({
+    const ride = await rideDB.insert({
       driver: req.user._id,
       from,
       to,
@@ -25,105 +31,83 @@ export const createRide = async (req: AuthRequest, res: Response) => {
       status: "open",
     });
 
-    res.status(201).json({
-      success: true,
-      ride,
-    });
+    res.status(201).json({ success: true, ride });
   } catch (error: any) {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
-/**
- * @desc    Get all open rides
- * @route   GET /api/rides
- * @access  Public (or Private, depending on preference. Usually Private in apps)
- */
 export const getOpenRides = async (req: Request, res: Response) => {
   try {
-    // Find rides where status is 'open'
-    // .populate('driver', 'name') replaces the ID with the actual driver's name
-    const rides = await Ride.find({ status: "open" })
-      .populate("driver", "name email")
-      .sort({ startTime: 1 }); // Sort by soonest rides
+    const rides = (await rideDB.find({ status: "open" }).sort({ startTime: 1 })) as RideDoc[];
 
-    res.status(200).json(rides);
+    // Manual Population for Driver
+    const populatedRides = await Promise.all(rides.map(async (ride) => {
+      const driver = await userDB.findOne({ _id: ride.driver }, { password: 0 });
+      return { ...ride, driver };
+    }));
+
+    res.status(200).json(populatedRides);
   } catch (error: any) {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
-/**
- * @desc    Passenger books a ride
- * @route   PUT /api/rides/book/:id
- */
 export const bookRide = async (req: AuthRequest, res: Response) => {
   try {
-    const ride = await Ride.findById(req.params.id);
+    if (!req.user) return res.status(401).json({ message: "Not authorized" });
+    
+    const ride = await rideDB.findOne({ _id: req.params.id }) as RideDoc | null;
 
-    if (!ride) {
-      return res.status(404).json({ message: "Ride not found" });
-    }
+    if (!ride) return res.status(404).json({ message: "Ride not found" });
+    if (ride.status !== "open") return res.status(400).json({ message: "Not available" });
 
-    if (ride.status !== "open") {
-      return res.status(400).json({ message: "Ride is no longer available" });
-    }
+    // NeDB uses .update, not .save()
+    await rideDB.update(
+      { _id: req.params.id },
+      { $set: { passenger: req.user._id, status: "booked" } }
+    );
 
-    // تحديث الرحلة: إضافة الراكب وتغيير الحالة إلى pending
-    ride.passenger = req.user._id;
-    ride.status = "booked"; // أو "pending" حسب التسمية التي تفضلها
-    await ride.save();
-
-    res.status(200).json({ success: true, ride });
+    res.status(200).json({ success: true });
   } catch (error: any) {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
-/**
- * @desc    Driver gets their active ride (Polling)
- * @route   GET /api/rides/my-active-ride
- */
 export const getMyActiveRide = async (req: AuthRequest, res: Response) => {
   try {
-    // نبحث عن رحلة لهذا السائق حالتها ليست مكتملة أو ملغية
-    const ride = await Ride.findOne({
-  $or: [{ driver: req.user._id }, { passenger: req.user._id }], // Check both
-  status: { $in: ["open", "booked", "ongoing"] },
-}).populate("driver", "name email rating").populate("passenger", "name email"); 
+    if (!req.user) return res.status(401).json({ message: "Not authorized" });
 
-    if (!ride) {
-      return res.status(200).json(null); // لا توجد رحلة نشطة
-    }
+    const ride = await rideDB.findOne({
+      $or: [{ driver: req.user._id }, { passenger: req.user._id }],
+      status: { $in: ["open", "booked", "ongoing"] },
+    }) as RideDoc | null;
 
-    res.status(200).json(ride);
+    if (!ride) return res.status(200).json(null);
+
+    // Manual population for both Driver and Passenger
+    const driver = await userDB.findOne({ _id: ride.driver }, { password: 0 });
+    const passenger = ride.passenger ? await userDB.findOne({ _id: ride.passenger }, { password: 0 }) : null;
+
+    res.status(200).json({ ...ride, driver, passenger });
   } catch (error: any) {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
 
-/**
- * @desc    Driver updates status (Accept -> ongoing, End -> completed)
- * @route   PUT /api/rides/status/:id
- */
 export const updateRideStatus = async (req: AuthRequest, res: Response) => {
   try {
-    const { status } = req.body; // "ongoing" or "completed"
-    const ride = await Ride.findById(req.params.id);
+    const { status } = req.body;
+    if (!req.user) return res.status(401).json({ message: "Not authorized" });
 
-    if (!ride) {
-      return res.status(404).json({ message: "Ride not found" });
-    }
+    const ride = await rideDB.findOne({ _id: req.params.id }) as RideDoc | null;
 
-    // تأكد أن السائق هو مالك الرحلة
-    if (ride.driver.toString() !== req.user._id.toString()) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
+    if (!ride) return res.status(404).json({ message: "Ride not found" });
+    if (ride.driver !== req.user._id) return res.status(401).json({ message: "Not authorized" });
 
-    ride.status = status;
-    await ride.save();
+    await rideDB.update({ _id: req.params.id }, { $set: { status } });
 
-    res.status(200).json({ success: true, ride });
+    res.status(200).json({ success: true });
   } catch (error: any) {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
