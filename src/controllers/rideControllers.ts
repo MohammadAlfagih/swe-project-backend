@@ -108,9 +108,12 @@ export const getMyActiveRide = async (req: AuthRequest, res: Response) => {
  */
 export const updateRideStatus = async (req: AuthRequest, res: Response) => {
   try {
-    const { status } = req.body; // "ongoing" or "completed"
-    const ride = await Ride.findById(req.params.id);
-
+    const { rideId, status } = req.body; // "ongoing" or "completed"
+    
+    if(!rideId){
+      return res.status(400).json({message: "Ride ID is Reqired"})
+    }
+    const ride = await Ride.findById(rideId)
     if (!ride) {
       return res.status(404).json({ message: "Ride not found" });
     }

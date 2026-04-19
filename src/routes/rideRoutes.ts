@@ -15,5 +15,5 @@ router.get("/", getOpenRides);
 router.post("/offer", protect, createRide);
 router.put("/book/:id", protect, bookRide); // الراكب يحجز
 router.get("/my-active-ride", protect, getMyActiveRide); // السائق يفحص (Polling)
-router.put("/status/:id", protect, updateRideStatus); // السائق يبدأ أو ينهي الرحلة
+router.put("/status", protect, updateRideStatus); // السائق يبدأ أو ينهي الرحلة
 export default router;
